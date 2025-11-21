@@ -1,0 +1,399 @@
+AGRICHAIN + AGRIPREDICT — INTEGRATION QUICK START GUIDE
+
+This guide walks you through setting up and linking both apps together.
+
+===============================================================================
+PHASE 1: SETUP THE UNIFIED BACKEND
+===============================================================================
+
+Step 1: Create environment file
+------
+cd c:\Users\Shriyansh Mishra\Documents\Codes\Projects\P\unified-backend
+copy .env.example .env
+
+Edit .env with your credentials:
+
+DB_URI=mongodb+srv://user:password@cluster.mongodb.net/agrichain?retryWrites=true&w=majority
+JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_token
+TWILIO_PHONE=+1234567890
+AGRIPREDICT_SERVICE_URL=http://localhost:5000
+PORT=8000
+FRONTEND_URL=http://localhost:3000
+
+Step 2: Install dependencies
+------
+cd unified-backend
+npm install
+
+Step 3: Start the unified backend
+------
+npm run dev
+
+Expected output:
+✓ Connected to MongoDB
+AgriChain Unified Backend Server Started
+Port: 8000
+Environment: development
+Database: Connected
+Frontend URL: http://localhost:3000
+AgriPredict Service: http://localhost:5000
+
+===============================================================================
+PHASE 2: CONNECT AGRIPREDICT FLASK SERVICE
+===============================================================================
+
+The unified backend calls AgriPredict APIs for ML predictions.
+
+Step 1: Start AgriPredict Flask server
+------
+cd c:\Users\Shriyansh Mishra\Documents\Codes\Projects\P\AgriPredict
+python flask_complete.py
+
+(Or if using venv):
+source .venv/bin/activate  # Linux/Mac
+.venv\Scripts\activate     # Windows
+python flask_complete.py
+
+Expected: Flask server running on http://localhost:5000
+
+Step 2: Verify connection
+------
+Backend will automatically call AgriPredict when:
+- Farmer submits soil parameters → /api/predictions/recommendations
+- Buyer needs yield prediction → /api/predictions/yield-price
+- Checking market demand → /api/predictions/demand
+- Getting fertilizer recommendations → /api/predictions/fertilizer
+
+Test by making a request from another terminal:
+
+curl -X POST http://localhost:8000/api/predictions/recommendations \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nitrogen": 40,
+    "phosphorus": 26,
+    "potassium": 9,
+    "temperature": 28,
+    "ph": 6.8,
+    "rainfall": 800,
+    "humidity": 65
+  }'
+
+Expected response:
+{
+  "message": "Crop recommendations retrieved",
+  "recommendations": {
+    "crop": "Paddy",
+    "confidence": 0.92,
+    ...
+  }
+}
+
+===============================================================================
+PHASE 3: SET UP UNIFIED FRONTEND
+===============================================================================
+
+The frontend needs to be updated to use the unified backend.
+
+Current state:
+- AgriChain frontend at: AgriChain/Frontend/
+- AgriPredict frontend: Flask templates in AgriPredict/templates/
+
+Goal: Create unified React frontend
+
+Step 1: Create new unified frontend (optional - can retrofit existing)
+------
+Option A: Use existing AgriChain/Frontend and add Planning tab
+
+Edit AgriChain/Frontend/src/index.js:
+- Add Planning routes
+- Import AgriPredict components
+- Update API base URL to unified backend
+
+Option B: Create new unified-frontend/ folder (recommended for fresh start)
+- Combines best of both UIs
+- Single codebase, easier maintenance
+
+Step 2: Update frontend environment variables
+------
+Create .env in Frontend folder:
+
+REACT_APP_API_URL=http://localhost:8000
+REACT_APP_AGRIPREDICT_URL=http://localhost:8000/api/predictions
+REACT_APP_MARKETPLACE_URL=http://localhost:8000/api/listings
+
+Step 3: Update API calls in components
+------
+Before (separate services):
+import agriChainAPI from './services/agriChainAPI';
+import agriPredictAPI from './services/agriPredictAPI';
+
+After (unified):
+import unifiedAPI from './services/unifiedAPI';
+
+// Single endpoint for everything
+const recommendations = await unifiedAPI.post('/predictions/recommendations', {...});
+const listings = await unifiedAPI.get('/listings/all', {...});
+
+Step 4: Start frontend development server
+------
+cd AgriChain/Frontend
+npm start
+
+Frontend will run on http://localhost:3000 and connect to:
+- Backend: http://localhost:8000
+- AgriPredict (via backend): http://localhost:5000 (transparent to frontend)
+
+===============================================================================
+PHASE 4: TEST INTEGRATION END-TO-END
+===============================================================================
+
+Complete workflow test (Farmer → AgriPredict → AgriChain → Buyer):
+
+Test 1: Farmer Registration & Soil Analysis
+------
+1. Open http://localhost:3000
+2. Click "Sign Up"
+3. Register as Farmer:
+   - Name: Ravi Kumar
+   - Email: ravi@farm.com
+   - Phone: +919876543210
+   - District: Adilabad
+   - Password: secure_password
+
+4. Login with credentials
+5. Go to "Planning" tab
+6. Enter soil profile:
+   - Nitrogen: 40, Phosphorus: 26, Potassium: 9
+   - Temperature: 28, pH: 6.8, Rainfall: 800, Humidity: 65
+7. Submit → Backend calls AgriPredict → Get recommendations
+8. See top 5 recommended crops with confidence scores
+
+Expected: "Paddy (92% confidence)" appears as top recommendation
+
+Test 2: Yield & Price Prediction
+------
+1. Select "Paddy" from recommendations
+2. Enter area: 12 acres
+3. Backend calls AgriPredict yield-price prediction
+4. See expected output:
+   - Yield: 5000 kg
+   - Price: ₹35/kg
+   - Revenue: ₹175,000
+
+Test 3: Create Listing in Marketplace
+------
+1. Go to "Marketplace" tab
+2. Click "Create Listing"
+3. Fill form:
+   - Crop: Paddy
+   - Quantity: 10 tons (pre-filled from prediction if auto-linked)
+   - Price: ₹35/kg (pre-filled from prediction)
+   - Quality: Grade A
+   - Harvest Date: Dec 15, 2024
+
+4. Submit → Listing created in MongoDB
+5. Real-time notification: All connected users see "New Paddy listing in Adilabad"
+
+Test 4: Buyer Interest & SMS Notification
+------
+1. Open new browser tab / incognito
+2. Sign up as Buyer:
+   - Name: Ramesh Trading
+   - Email: ramesh@buyer.com
+   - Phone: +919876543211
+   - Role: Buyer
+
+3. Login as buyer
+4. Go to Marketplace
+5. See Paddy listing by Ravi
+6. Click "Interested"
+7. Check: SMS should be sent to farmer's phone +919876543210
+   - Message: "A buyer is interested in your Paddy listing (10 tons). Check AgriChain app for details."
+8. Farmer sees real-time notification (if logged in)
+
+Test 5: Contract Creation & Blockchain
+------
+1. As Buyer: Click "Create Contract" on listing
+2. Fill terms:
+   - Price: ₹35/kg
+   - Delivery: Dec 20, 2024
+   - Quality specs: Grade A, Moisture <14%
+   - Down payment: 20%
+
+3. Click "Sign with Wallet"
+4. Connect MetaMask / wallet
+5. Sign transaction
+6. Contract submitted to blockchain (Neo X Mainnet)
+7. Both farmer and buyer see contract in active list with stage: "signed"
+
+Test 6: Admin Review
+------
+1. Login as admin (create admin account or use existing)
+2. Go to Admin Dashboard
+3. See contract pending verification
+4. Review details:
+   - Farmer: Ravi Kumar
+   - Buyer: Ramesh Trading
+   - Crop: Paddy, 10 tons, ₹35/kg
+5. Approve → Contract moves to "in_progress" stage
+
+===============================================================================
+PHASE 5: TROUBLESHOOTING
+===============================================================================
+
+Issue 1: Backend cannot connect to MongoDB
+Solution:
+- Verify DB_URI in .env is correct
+- Check MongoDB Atlas IP whitelist includes your IP
+- Test: mongosh "mongodb+srv://..." --password
+
+Issue 2: Backend cannot call AgriPredict
+Solution:
+- Verify AgriPredict Flask server is running on port 5000
+- Check AGRIPREDICT_SERVICE_URL in .env
+- Test: curl http://localhost:5000/
+
+Issue 3: SMS not sending
+Solution:
+- Verify Twilio credentials in .env
+- Check TWILIO_PHONE number is valid
+- Confirm SMS balance in Twilio account
+- Check farmer phone number format includes country code
+
+Issue 4: Frontend cannot reach backend
+Solution:
+- Verify backend running on port 8000
+- Check FRONTEND_URL in backend .env matches frontend URL
+- Verify REACT_APP_API_URL in frontend .env points to http://localhost:8000
+- Check CORS is enabled in server.js
+
+Issue 5: Wallet integration failing
+Solution:
+- Ensure MetaMask is installed in browser
+- Verify CONTRACT_ADDRESS in .env is correct
+- Check contract ABI is present in frontend
+- Confirm connected to Neo X Mainnet in wallet
+
+Issue 6: Real-time notifications not working
+Solution:
+- Check WebSocket connection (browser DevTools > Network > WS)
+- Verify Socket.io server started (check logs)
+- Ensure user joined correct room: io.emit('join-user', userId)
+
+===============================================================================
+PHASE 6: DEPLOYMENT CHECKLIST
+===============================================================================
+
+Before deploying to production:
+
+Backend:
+[ ] All environment variables set (no hardcoded secrets)
+[ ] MongoDB Atlas production database configured
+[ ] Twilio production credentials added
+[ ] HTTPS enabled (Render provides auto HTTPS)
+[ ] Rate limiting added
+[ ] Error handling comprehensive
+[ ] Logging configured (Winston, Bunyan)
+[ ] Database backups scheduled
+[ ] API documentation complete (Swagger)
+
+Frontend:
+[ ] Build optimized: npm run build
+[ ] API endpoints point to production backend URL
+[ ] Error messages user-friendly
+[ ] Loading states visible
+[ ] Mobile responsive tested
+[ ] Accessibility (a11y) checked
+[ ] Performance optimized (lazy loading, code splitting)
+
+Security:
+[ ] JWT secret is strong (32+ characters random)
+[ ] CORS restricted to frontend domain
+[ ] SQL injection prevented (using Mongoose schemas)
+[ ] XSS protection enabled (sanitize inputs)
+[ ] Rate limiting on auth endpoints
+[ ] Passwords hashed (bcryptjs)
+[ ] Sensitive data not logged
+
+Infrastructure:
+[ ] Backend deployed (Render, Heroku, AWS)
+[ ] Frontend deployed (Vercel, Netlify, AWS S3 + CloudFront)
+[ ] DNS records updated
+[ ] SSL certificates configured
+[ ] Monitoring & alerts set up
+[ ] Backup strategy in place
+
+===============================================================================
+PHASE 7: DAILY OPERATIONS
+===============================================================================
+
+Starting everything for development:
+
+Terminal 1 (AgriPredict Flask):
+------
+cd AgriPredict
+python flask_complete.py
+→ Running on http://localhost:5000
+
+Terminal 2 (Unified Backend):
+------
+cd unified-backend
+npm run dev
+→ Server running on port 8000
+
+Terminal 3 (Frontend):
+------
+cd AgriChain/Frontend
+npm start
+→ Running on http://localhost:3000
+
+Then:
+1. Open http://localhost:3000 in browser
+2. Start testing!
+
+Stopping:
+- Press Ctrl+C in each terminal
+
+Important URLs:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- Backend Health: http://localhost:8000/health
+- Flask server: http://localhost:5000
+- MongoDB: Atlas dashboard
+
+===============================================================================
+NEXT STEPS
+===============================================================================
+
+Immediate:
+[ ] Complete farm profile management endpoints
+[ ] Implement contract lifecycle routes (harvest, verification, delivery)
+[ ] Add file upload for photos (AWS S3)
+[ ] Write unit tests
+
+Short-term:
+[ ] Deploy to production
+[ ] Set up monitoring (New Relic, DataDog)
+[ ] Create user documentation
+[ ] Conduct beta testing with 50 farmers
+
+Medium-term:
+[ ] Mobile app (React Native)
+[ ] IoT sensor integration
+[ ] Advanced analytics
+[ ] Insurance integration
+[ ] Farmer financing features
+
+===============================================================================
+CONTACT & SUPPORT
+===============================================================================
+
+For issues or questions:
+- Dev Team: dev@agrichain.com
+- GitHub Issues: <repo-url>/issues
+- Discord: <server-link>
+
+Last updated: November 2025

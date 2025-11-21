@@ -1,0 +1,129 @@
+AgriChain - How to run the application (Local development)
+
+Prerequisites
+- Node.js (v16+ recommended)
+- npm or yarn
+- MongoDB (local or Atlas URI)
+- A browser wallet (MetaMask or Neo-compatible) for signing transactions
+- Git (optional)
+
+Repository layout (important paths)
+- `contracts/`        -> Solidity contract(s) and Hardhat scripts
+- `backend/`          -> Express server, API routes, MongoDB models
+- `Frontend/`         -> React application
+- `scripts/`          -> deployment or helper scripts
+
+1) Clone & install dependencies
+
+PowerShell commands:
+
+cd \path\to\your\workspace\AgriChain
+
+# Backend
+cd backend
+npm install
+
+# Frontend
+cd ..\Frontend
+npm install
+
+# (Optional) Contracts / Hardhat
+cd ..\contracts
+npm install
+
+2) Prepare environment variables
+- Create a `.env` file in `backend/` with the following (example keys):
+
+DB_URI=<your-mongodb-uri>
+JWT_SECRET=<your-jwt-secret>
+TWILIO_ACCOUNT_SID=<twilio-sid>
+TWILIO_AUTH_TOKEN=<twilio-token>
+TWILIO_PHONE=<twilio-phone-number>
+PROVIDER_URL=<rpc-provider-url-if-needed>
+
+If you use MongoDB Atlas, paste the connection string into `DB_URI`.
+
+3) Running the backend (development)
+
+PowerShell (from project root):
+
+cd backend
+npm run start
+
+Or, if you use nodemon:
+
+npx nodemon index.js
+
+Server will start (default port in `backend/index.js` — commonly `5000`). Check console for `Connected to MongoDB` and `Server started` logs.
+
+4) Running the frontend (development)
+
+Open a new terminal and run:
+
+cd Frontend
+npm start
+
+This starts the React dev server (commonly on `http://localhost:3000`). The app will attempt to connect to the backend API and will prompt wallet connection for blockchain actions.
+
+5) Local smart contract development (optional)
+
+If you want to test contracts locally with Hardhat:
+
+cd contracts
+npx hardhat node    # starts a local chain
+
+In another terminal (same folder):
+
+npx hardhat run scripts/deploy.js --network localhost
+
+Notes:
+- After deploying locally, take the deployed address and ABI and update the frontend config to point to the local contract address.
+- For production, deploy with `--network <network>` configured in `hardhat.config.js`.
+
+6) How a typical user flow is exercised locally
+- Start backend and frontend as above.
+- Create an account (signup) from the frontend — backend will store user in MongoDB.
+- Add a listing (`Add Listing`/`AddNote` UI) which posts to the backend API and saves in MongoDB.
+- From another account/browser, open listing and click `Interested` — this triggers the backend to send SMS (if Twilio configured) and store interest in DB.
+- To create a contract: open the contract form, enter terms, connect wallet, and submit the on-chain transaction. Wait for confirmations; the backend can record the tx hash and event.
+
+7) Running tests (if present)
+
+# Contracts (Hardhat tests)
+cd contracts
+npx hardhat test
+
+# Backend tests (if any)
+cd ..\backend
+npm test
+
+8) Building for production
+
+# Frontend build
+cd Frontend
+npm run build
+
+# Backend: ensure `NODE_ENV=production` and point `DB_URI` to the production database. Use a process manager (PM2) or a cloud provider to run the server.
+
+9) Deploy notes
+- Contracts: deploy via Hardhat to the target network. Ensure you have deployment keys and GAS funds.
+- Backend: can be deployed to Heroku, Render, DigitalOcean, or similar — set environment variables in your provider dashboard.
+- Frontend: serve static build with Netlify, Vercel, or via the same backend as static assets.
+
+10) Troubleshooting tips
+- Backend cannot connect to MongoDB: verify `DB_URI`, network access, and IP whitelist for Atlas.
+- Frontend cannot call API: check CORS settings in backend and correct API base URL in frontend environment config.
+- Wallet transactions failing: open developer console, inspect transaction error in the wallet popup or check the provider's RPC error.
+- Missing contract ABI/address: ensure `contracts/Report.json` or the compiled artifacts are copied to the frontend `src/views/contractJson/` folder.
+
+11) Useful commands summary (PowerShell)
+
+cd c:\Users\<you>\Documents\Codes\Projects\P\AgriChain
+
+cd backend; npm install; npm run start
+cd ..\Frontend; npm install; npm start
+cd ..\contracts; npm install; npx hardhat node
+npx hardhat run scripts/deploy.js --network localhost
+
+— End of run instructions —
+

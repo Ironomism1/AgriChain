@@ -1,0 +1,933 @@
+AgriChain + AgriPredict — Enhancement Plan & Unified Web Interface
+
+PROJECT VISION
+==============
+Build a unified, AI-powered agricultural ecosystem where farmers can:
+1. Analyze their soil and plan crops scientifically (AgriPredict)
+2. Get market-driven pricing and demand forecasts
+3. Connect with verified buyers and create blockchain-backed contracts (AgriChain)
+4. Track their cultivation progress and get real-time market alerts
+All from a single, intuitive web interface.
+
+---
+
+PHASE 1: UNIFIED WEB INTERFACE (3-4 weeks)
+===========================================
+
+1.1 Frontend Architecture Redesign
+- Current: Separate React apps for AgriChain (Frontend/) and AgriPredict (Flask templates)
+- New: Single React SPA with tab-based navigation
+
+New folder structure:
+```
+unified-frontend/
+├── src/
+│   ├── components/
+│   │   ├── Navbar.js (unified header with user profile, notifications)
+│   │   ├── Sidebar.js (main navigation menu)
+│   │   └── Dashboard.js (unified landing page)
+│   ├── pages/
+│   │   ├── planning/ (AgriPredict features)
+│   │   │   ├── SoilAnalysis.js
+│   │   │   ├── CropRecommendation.js
+│   │   │   ├── YieldForecast.js
+│   │   │   ├── DemandAnalysis.js
+│   │   │   └── FertilizerGuide.js
+│   │   ├── marketplace/ (AgriChain features)
+│   │   │   ├── BrowseListings.js
+│   │   │   ├── CreateListing.js
+│   │   │   ├── MyListings.js
+│   │   │   ├── ContractForm.js
+│   │   │   └── ActiveContracts.js
+│   │   ├── analytics/ (NEW)
+│   │   │   ├── FarmDashboard.js
+│   │   │   ├── PriceHistory.js
+│   │   │   ├── YieldTracking.js
+│   │   │   └── IncomeReport.js
+│   │   └── admin/ (Admin panel)
+│   │       ├── ContractReview.js
+│   │       ├── UserManagement.js
+│   │       ├── AnalyticsOverview.js
+│   │       └── DisputeResolution.js
+│   ├── services/
+│   │   ├── agriPredictAPI.js (calls Flask/new Python API)
+│   │   ├── agriChainAPI.js (calls Express backend)
+│   │   └── contractService.js (Web3 interactions)
+│   ├── context/
+│   │   ├── UserContext.js (unified user auth)
+│   │   ├── FarmContext.js (farm/soil data)
+│   │   └── ListingsContext.js (marketplace state)
+│   └── styles/
+│       ├── common.css (shared Glassmorphism design)
+│       ├── planning.css
+│       ├── marketplace.css
+│       └── animations.css
+
+Key components:
+- Unified Navbar: shows user role, farm name, active contracts, unread notifications
+- Sidebar: quick links to Planning, Marketplace, Analytics, Admin (role-based)
+- Dashboard: personalized landing page (farmer sees their farm + open contracts; buyer sees saved searches + recent offers)
+- Responsive design: mobile-first for field use on low bandwidth
+
+1.2 Backend Integration Layer (Node.js + Python)
+Current state:
+- AgriChain: Express server on Node.js
+- AgriPredict: Flask server (Python)
+
+New unified backend:
+```
+unified-backend/
+├── server.js (main Express app)
+├── config/
+│   ├── db.js (MongoDB connection)
+│   ├── auth.js (JWT config)
+│   └── env.js (environment variables)
+├── middleware/
+│   ├── authMiddleware.js
+│   ├── corsMiddleware.js
+│   └── errorHandler.js
+├── routes/
+│   ├── auth.js (login, signup, refresh token)
+│   ├── users.js (profile, farm data)
+│   ├── listings.js (create, read, update, delete crop listings)
+│   ├── contracts.js (create, read, update contract status)
+│   ├── predictions.js (NEW: calls Python ML services)
+│   ├── recommendations.js (NEW: crop & fertilizer recommendations)
+│   ├── analytics.js (NEW: yield tracking, income reports)
+│   ├── admin.js (contract review, disputes)
+│   └── notifications.js (SMS, email, in-app)
+├── models/
+│   ├── User.js (farmer/buyer profile)
+│   ├── Farm.js (NEW: soil data, recommendations history)
+│   ├── Listing.js (crop listings)
+│   ├── Contract.js (on-chain & off-chain contract metadata)
+│   ├── Notification.js (NEW: notification history)
+│   └── Analytics.js (NEW: yield tracking, income logs)
+├── services/
+│   ├── authService.js
+│   ├── twilioService.js (SMS)
+│   ├── web3Service.js (contract deployment, events)
+│   ├── pythonMLService.js (NEW: calls Python backend for predictions)
+│   └── analysisService.js (NEW: price analysis, demand forecasting)
+├── workers/ (NEW)
+│   ├── predictionWorker.js (async ML predictions via Bull queue)
+│   ├── contractMonitor.js (listens to blockchain events)
+│   └── priceAggregator.js (fetches market prices from external APIs)
+└── tests/
+    └── integration.test.js
+```
+
+Python ML Backend (separate lightweight service):
+```
+python-ml-service/
+├── app.py (Flask app exposing ML endpoints)
+├── models/
+│   ├── crop_recommendation.pkl
+│   ├── yield_predictor.pkl
+│   ├── price_predictor.pkl
+│   └── demand_forecaster.pkl
+├── services/
+│   ├── crop_recommender.py
+│   ├── yield_predictor.py
+│   ├── price_predictor.py
+│   ├── fertilizer_recommender.py
+│   └── demand_analyzer.py
+├── routes/
+│   ├── recommendations.py
+│   ├── predictions.py
+│   └── analytics.py
+└── requirements.txt
+```
+
+Integration approach:
+- Node backend exposes REST API for frontend
+- Node backend acts as orchestrator; calls Python ML service via HTTP
+- Python service is lightweight and scalable (can be containerized)
+- Message queue (Redis/Bull) for async predictions to prevent blocking
+
+1.3 Unified Authentication & Authorization
+- Extend JWT to include user type (farmer/buyer/admin) and farm_id
+- Single login page; role-based UI rendering
+- Social login (optional): Google/GitHub for easier onboarding
+
+New endpoints:
+```
+POST /api/auth/register
+  { email, password, name, role: "farmer" | "buyer", phone }
+  Response: { user_id, token }
+
+POST /api/auth/login
+  { email, password }
+  Response: { user_id, token, role, farm_data (if farmer) }
+
+POST /api/auth/refresh-token
+  { refresh_token }
+  Response: { token }
+
+POST /api/auth/logout
+  Response: { success: true }
+
+GET /api/users/profile
+  Response: { user, farm (if farmer), contracts (active) }
+
+PUT /api/users/profile
+  { name, phone, district, address }
+  Response: { updated user }
+```
+
+1.4 Unified User Dashboard (Landing Page)
+For Farmers:
+- Widget 1: "My Farm Profile" — district, soil NPK, last updated
+- Widget 2: "Recommended Crops" — top 3 recommended crops based on soil profile
+- Widget 3: "Price Forecast" — expected price trend for their planned crop
+- Widget 4: "Active Listings" — crops they're selling
+- Widget 5: "Active Contracts" — ongoing buyer agreements
+- Widget 6: "Income This Month" — sum of completed contracts (new)
+- Widget 7: "Pending Interest" — buyers interested in their listings
+- Quick actions: "Update Farm Profile", "Add Listing", "View All Crops"
+
+For Buyers:
+- Widget 1: "Saved Searches" — favorite crop/region combos
+- Widget 2: "Recent Listings" — new listings matching their preferences
+- Widget 3: "Active Contracts" — ongoing purchases
+- Widget 4: "Pending Negotiations" — interested listings awaiting response
+- Widget 5: "Price Trends" — historical prices for crops they track
+- Quick actions: "Browse Marketplace", "Create Saved Search", "View My Contracts"
+
+For Admins:
+- Widget 1: "Platform Stats" — total users, listings, contracts
+- Widget 2: "Pending Contracts" — contracts awaiting verification
+- Widget 3: "Disputes" — active disputes needing resolution
+- Widget 4: "Market Overview" — aggregate supply/demand by crop
+- Quick actions: "Review Contracts", "Manage Users", "View Reports"
+
+---
+
+PHASE 2: NEW FEATURES (4-6 weeks)
+==================================
+
+2.1 Farm Profile & Soil Data Management (NEW)
+Current: Only captured during crop recommendation
+New: Persistent farm profile with history
+
+New database model (Farm):
+```
+{
+  _id: ObjectId,
+  farmer_id: ObjectId (ref to User),
+  farm_name: String,
+  district: String,
+  area_acres: Number,
+  soil_type: String,
+  soil_ph: Number,
+  nitrogen: Number,
+  phosphorus: Number,
+  potassium: Number,
+  temperature_avg: Number,
+  humidity_avg: Number,
+  rainfall_annual: Number,
+  irrigation_type: String,
+  crops_grown_history: [
+    { crop, year, area, yield_kg, price_per_kg, revenue }
+  ],
+  recommendations_history: [
+    { date, crop, confidence, yield_prediction, price_prediction }
+  ],
+  created_at: Date,
+  updated_at: Date
+}
+```
+
+New endpoints:
+```
+POST /api/farm/profile
+  { farm_name, district, area_acres, soil_ph, nitrogen, phosphorus, potassium, temperature_avg, humidity_avg, rainfall_annual, irrigation_type }
+  Response: { farm_id, success }
+
+GET /api/farm/profile
+  Response: { farm data + history }
+
+PUT /api/farm/profile
+  { updated fields }
+  Response: { updated farm }
+
+POST /api/farm/add-history
+  { crop, year, area, yield_kg, price_per_kg }
+  Response: { success, added to history }
+
+GET /api/farm/recommendations
+  Response: { all past recommendations + current best match }
+```
+
+UI Pages:
+- FarmProfileSetup.js: wizard to capture soil data (2-3 screens)
+- FarmDashboard.js: displays current farm profile, history, recommendations
+- SoilHistoryChart.js: visualization of soil trends over years
+
+2.2 Advanced Crop Recommendation (ENHANCED)
+Current: Returns single recommended crop based on soil
+New: Returns ranked list of 5 suitable crops with confidence scores and profitability ranking
+
+New response format:
+```
+{
+  recommendations: [
+    {
+      rank: 1,
+      crop: "Paddy",
+      confidence: 0.92,
+      predicted_yield_kg: 5000,
+      predicted_price_per_kg: 35,
+      expected_revenue: 175000,
+      soil_suitability: "Excellent",
+      risk_level: "Low",
+      market_demand: "High",
+      competitor_count: 24 // how many farmers in the region grow this
+    },
+    { rank: 2, crop: "Arhar", ... },
+    ...
+  ]
+}
+```
+
+New features:
+- Risk assessment: factoring in drought, pests, market price volatility
+- Profitability ranking: including expected market price, not just yield
+- Competitor analysis: how many other farmers grow the same crop (helps buyer find unique options)
+- Alternative crop suggestions: if primary choice has high risk or low demand
+
+2.3 Real-time Price Tracking (NEW)
+Current: Historical prices from old data
+New: Live market price aggregation and trend analysis
+
+Architecture:
+- Background worker fetches prices from APEDA, government agriculture portals, and AgriChain transactions
+- Stores in TimeSeries collection in MongoDB
+- API exposes current price and 30/60/90-day trend
+
+New endpoints:
+```
+GET /api/market/prices?crop=Paddy&district=Adilabad&days=30
+  Response: {
+    current_price: 35,
+    average_price_30d: 34.2,
+    min_price_30d: 32,
+    max_price_30d: 36.5,
+    trend: "up" | "down" | "stable",
+    historical_data: [ { date, price } ],
+    forecast_next_7d: [33, 34, 35, 35, 36, 36, 37]
+  }
+
+GET /api/market/demand?crop=Paddy&district=Adilabad
+  Response: {
+    demand_level: "High" | "Medium" | "Low",
+    active_listings: 12,
+    active_buyers: 8,
+    avg_price_offered: 35,
+    price_range: [32, 40]
+  }
+
+GET /api/market/opportunities
+  Query: { crop?, district?, min_margin? }
+  Response: [
+    { crop: "Arhar", current_price: 45, predicted_price: 48, margin_opportunity: "6.7%", buyer_count: 5 }
+  ]
+```
+
+UI Pages:
+- PriceTracker.js: interactive chart showing price history + forecast
+- DemandAnalysis.js: bar chart showing supply vs. demand by crop
+- MarketOpportunities.js: recommendations for highest-margin crops to grow
+
+2.4 Advanced Contract Management (ENHANCED)
+Current: Simple terms (price, quantity, date)
+New: Multi-stage contract lifecycle with automated workflows
+
+New contract stages:
+1. Negotiation: buyer and farmer agree on terms
+2. Signed: both parties have signed via wallet
+3. Down Payment Escrowed: buyer paid 10-30% to secure (smart contract holds)
+4. In Progress: farmer is cultivating
+5. Harvest Submitted: farmer uploaded harvest proof (photos + GPS)
+6. Verification: admin or third-party inspector verifies quality
+7. Delivery Scheduled: logistics arranged
+8. Delivered: goods received; quality inspected
+9. Payment Released: final amount paid to farmer
+10. Completed: contract settled; can be reviewed
+
+New contract model:
+```
+{
+  _id: ObjectId,
+  listing_id: ObjectId,
+  buyer_id: ObjectId,
+  farmer_id: ObjectId,
+  crop: String,
+  quantity_kg: Number,
+  price_per_kg: Number,
+  total_value: Number,
+  
+  // Advanced fields
+  down_payment_percent: Number,
+  down_payment_amount: Number,
+  down_payment_status: String, // pending, escrowed, refunded
+  
+  quality_standards: {
+    moisture_percent: Number,
+    defect_limit: Number,
+    size_grade: String
+  },
+  
+  delivery_window_start: Date,
+  delivery_window_end: Date,
+  
+  stage: String, // negotiation, signed, escrowed, in_progress, etc.
+  stage_history: [ { stage, timestamp, updated_by } ],
+  
+  harvest_proof: {
+    photos: [ url ],
+    gps_coordinates: { lat, lng },
+    submitted_date: Date,
+    submitted_by_farmer: Boolean
+  },
+  
+  verification: {
+    verified_by_admin: Boolean,
+    verified_date: Date,
+    inspector_notes: String,
+    passed_quality: Boolean,
+    penalties_applied: Number
+  },
+  
+  delivery_logistics: {
+    transporter: String,
+    tracking_id: String,
+    estimated_delivery: Date,
+    actual_delivery: Date
+  },
+  
+  payment_schedule: {
+    down_payment: { amount, status, date },
+    final_payment: { amount, status, date }
+  },
+  
+  penalties: [ { reason, amount, date } ],
+  disputes: [ { raised_by, reason, status, resolution } ],
+  
+  blockchain: {
+    contract_address: String,
+    tx_hash: String,
+    status_on_chain: String
+  },
+  
+  created_at: Date,
+  updated_at: Date,
+  completed_at: Date
+}
+```
+
+New endpoints:
+```
+POST /api/contracts/initiate
+  { listing_id, buyer_id, proposed_terms }
+  Response: { contract_id, status: "negotiation" }
+
+PUT /api/contracts/:id/negotiate
+  { counter_terms }
+  Response: { updated contract }
+
+PUT /api/contracts/:id/sign
+  { wallet_signature }
+  Response: { contract_id, status: "signed", on_chain_status }
+
+POST /api/contracts/:id/submit-harvest
+  { photos, gps_coordinates }
+  Response: { success, submitted_date }
+
+POST /api/contracts/:id/verify
+  Admin only
+  { passed_quality, inspector_notes, penalties }
+  Response: { verified, updated stage }
+
+POST /api/contracts/:id/schedule-delivery
+  { transporter, tracking_id, estimated_date }
+  Response: { success, logistics_saved }
+
+PUT /api/contracts/:id/complete
+  { actual_delivery_date, confirmation }
+  Response: { contract_completed, final_payment_released }
+
+GET /api/contracts/:id/timeline
+  Response: { stage_history with timestamps }
+
+POST /api/contracts/:id/raise-dispute
+  { reason, evidence }
+  Response: { dispute_id, escalated_to_admin }
+```
+
+UI Pages:
+- ContractTimeline.js: visual timeline showing current stage + history
+- HarvestSubmission.js: upload photos + GPS for harvest proof
+- DeliveryTracking.js: real-time GPS tracking + delivery updates
+- DisputeResolution.js: raise or resolve disputes with evidence
+
+2.5 Farmer Analytics & Income Tracking (NEW)
+Current: No tracking of yields or income
+New: Dashboard showing farm performance over time
+
+New endpoints:
+```
+GET /api/analytics/farm-performance
+  Response: {
+    total_crops_cultivated: 15,
+    total_area_acres: 50,
+    avg_yield_per_crop: 4200,
+    total_revenue_lifetime: 850000,
+    revenue_this_year: 180000,
+    revenue_this_month: 25000,
+    completed_contracts: 8,
+    active_contracts: 2,
+    contract_completion_rate: 0.95,
+    avg_price_received: 34.5,
+    vs_market_avg_price: "+2.3%" // farmer got better prices
+  }
+
+GET /api/analytics/yield-history
+  Response: [
+    { crop: "Paddy", year: 2023, area: 10, yield: 4500, revenue: 157500 },
+    { crop: "Paddy", year: 2024, area: 12, yield: 5100, revenue: 178500 }
+  ]
+
+GET /api/analytics/income-report?year=2024
+  Response: {
+    monthly_income: [ { month, amount } ],
+    crop_breakdown: [ { crop, income, percentage } ],
+    best_performing_crop: "Paddy",
+    growth_vs_last_year: "+15%"
+  }
+
+GET /api/analytics/forecast-income?planned_crop=Paddy&area=12
+  Response: {
+    predicted_yield: 5000,
+    predicted_price: 35,
+    predicted_revenue: 175000,
+    confidence: 0.88,
+    best_case: 185000,
+    worst_case: 165000
+  }
+```
+
+UI Pages:
+- IncomeReport.js: monthly/yearly income breakdown
+- YieldComparison.js: compare yield across years and crops
+- ForecastWidget.js: predict income based on planned cultivation
+- PerformanceChart.js: line chart showing historical performance
+
+2.6 In-App Messaging & Real-time Notifications (ENHANCED)
+Current: SMS only via Twilio
+New: In-app chat, push notifications, email
+
+New endpoints:
+```
+POST /api/messages/send
+  { recipient_id, message, contract_id }
+  Response: { message_id, sent_at }
+
+GET /api/messages/:contract_id
+  Response: [ { sender, message, timestamp } ]
+
+GET /api/notifications
+  Response: {
+    unread_count: 5,
+    notifications: [
+      { type: "price_alert", message: "Paddy price up to 37", timestamp },
+      { type: "buyer_interested", message: "New buyer interested in your Paddy listing", timestamp },
+      { type: "contract_ready", message: "Buyer signed contract", timestamp }
+    ]
+  }
+
+POST /api/notifications/mark-read
+  { notification_ids }
+  Response: { success }
+```
+
+Real-time features (WebSocket):
+- Live chat in contract negotiations
+- Price alerts (when crop price changes by >5%)
+- Buyer interest alerts
+- Contract stage updates (e.g., "Admin verified your harvest")
+- SMS fallback for critical alerts
+
+2.7 Quality Verification & Insurance Integration (NEW - Phase 2B)
+New feature: Third-party quality verification and insurance
+
+Model:
+```
+QualityVerification:
+  {
+    _id: ObjectId,
+    contract_id: ObjectId,
+    inspector_id: ObjectId,
+    inspection_date: Date,
+    location: { lat, lng },
+    
+    measurements: {
+      moisture_content: Number,
+      defect_count: Number,
+      sample_weight: Number,
+      color_grade: String
+    },
+    
+    passed: Boolean,
+    score: Number, // 0-100
+    notes: String,
+    photos: [ url ],
+    
+    penalty_recommended: Boolean,
+    penalty_amount: Number,
+    
+    created_at: Date
+  }
+
+Insurance:
+  {
+    _id: ObjectId,
+    contract_id: ObjectId,
+    farmer_id: ObjectId,
+    coverage_amount: Number,
+    premium: Number,
+    status: "active" | "claimed" | "completed",
+    risk_factors: {
+      weather: String,
+      pest_pressure: String,
+      market_risk: String
+    },
+    created_at: Date
+  }
+```
+
+New endpoints:
+```
+POST /api/verification/schedule
+  { contract_id, preferred_date }
+  Response: { verification_id, scheduled_date, inspector_assigned }
+
+GET /api/verification/:verification_id
+  Response: { verification details, score, passed, penalties }
+
+POST /api/insurance/get-quote
+  { contract_id, coverage_type }
+  Response: { quote, coverage_details, premium }
+
+POST /api/insurance/purchase
+  { contract_id, coverage_type }
+  Response: { insurance_id, active, status }
+```
+
+---
+
+PHASE 3: SCALABILITY & ADVANCED FEATURES (6-8 weeks)
+=====================================================
+
+3.1 Mobile App (React Native)
+- Cross-platform Android/iOS app
+- Offline mode for farm areas with poor connectivity
+- Push notifications
+- GPS-based farm mapping
+- Camera integration for harvest photos
+
+3.2 IoT Integration (Future)
+- Soil sensor data feeds into farm profile automatically
+- Weather data from local stations
+- Drone imagery for yield estimation
+- Real-time alerts (pest, weather, irrigation needs)
+
+3.3 Logistics & Supply Chain
+- Partner with logistics providers
+- Track shipments on-chain
+- Automated delivery confirmations
+
+3.4 Multi-language Support
+- Add regional languages (Telugu, Marathi, Kannada, Tamil)
+- Localized price/demand data by region
+
+3.5 Farmer Financing
+- Micro-loans based on contract value
+- Credit scoring based on contract completion history
+- Insurance-backed lending
+
+3.6 Advanced Analytics
+- Demand forecasting (ARIMA, Prophet models)
+- Price optimization recommendations
+- Yield prediction improving over time with farm data
+
+---
+
+UNIFIED WEB INTERFACE — MOCKUP STRUCTURE
+=========================================
+
+Main Layout (All Pages)
+```
+┌─────────────────────────────────────────────────────┐
+│ AgriChain Logo  | Planning | Marketplace | Analytics│ Admin │ Profile ▼
+├─────────────────────────────────────────────────────┤
+│ ◀ Sidebar        │  Main Content Area               │
+│                  │                                  │
+│ Dashboard        │  [Page-specific content]         │
+│ Farm Profile     │                                  │
+│ My Listings      │                                  │
+│ My Contracts     │                                  │
+│ Analytics        │                                  │
+│ Settings         │                                  │
+│ Help             │                                  │
+└──────────────────┴──────────────────────────────────┘
+```
+
+Farmer Dashboard (Planning Tab)
+```
+┌─────────────────────────────────────────────────────┐
+│ Planning  [MY FARM] [RECOMMENDATIONS] [FORECAST]   │
+├─────────────────────────────────────────────────────┤
+│ ┌─────────────────────┐  ┌──────────────────────┐  │
+│ │ My Farm Profile     │  │ Recommended Crops    │  │
+│ │ District: Adilabad  │  │ 1. Paddy (92%)       │  │
+│ │ Area: 12 acres      │  │ 2. Arhar (85%)       │  │
+│ │ Last updated: 2d    │  │ 3. Sorghum (78%)     │  │
+│ │ [Edit Profile]      │  │ [View Details]       │  │
+│ └─────────────────────┘  └──────────────────────┘  │
+│ ┌──────────────────────────────────────────────┐   │
+│ │ Price Forecast (Next 30 days)                │   │
+│ │ Paddy: ↑ 35 → 38 (Expected: ₹37)             │   │
+│ │ Chart: [Line graph showing price trend]      │   │
+│ │ Recommendation: Good time to sell in 2 weeks │   │
+│ └──────────────────────────────────────────────┘   │
+│ ┌──────────────────────────────────────────────┐   │
+│ │ Market Demand Analysis                       │   │
+│ │ Paddy: High demand (24 competing listings)   │   │
+│ │ Arhar: Medium demand (8 competing listings)  │   │
+│ │ Sorghum: Low demand (2 competing listings)   │   │
+│ └──────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+Farmer Dashboard (Marketplace Tab)
+```
+┌─────────────────────────────────────────────────────┐
+│ Marketplace [MY LISTINGS] [ACTIVE CONTRACTS] [BROWSE]
+├─────────────────────────────────────────────────────┤
+│ My Listings (2 active):                              │
+│ ┌──────────────────────────────────────────────┐   │
+│ │ Paddy - 10 tons, ₹35/kg                      │   │
+│ │ Interest: 3 buyers | Status: Active          │   │
+│ │ [View Details] [Edit] [View Offers]          │   │
+│ └──────────────────────────────────────────────┘   │
+│ ┌──────────────────────────────────────────────┐   │
+│ │ Arhar - 5 tons, ₹45/kg                       │   │
+│ │ Interest: 1 buyer | Status: Active           │   │
+│ │ [View Details] [Edit] [View Offers]          │   │
+│ └──────────────────────────────────────────────┘   │
+│ ┌──────────────────────────────────────────────┐   │
+│ │ Active Contracts (1):                        │   │
+│ │ Paddy → Buyer: Ramesh Trading Co.            │   │
+│ │ Status: In Progress (Harvest Stage) ◼◼◼◻◻   │   │
+│ │ Expected Delivery: Dec 15, 2024               │   │
+│ │ [View Timeline] [Submit Harvest] [Contact]   │   │
+│ └──────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+Farmer Dashboard (Analytics Tab)
+```
+┌─────────────────────────────────────────────────────┐
+│ Analytics [INCOME] [YIELD] [PERFORMANCE]            │
+├─────────────────────────────────────────────────────┤
+│ Income This Month: ₹25,000                          │
+│ Income This Year: ₹180,000                          │
+│ Growth vs Last Year: +15%                           │
+│ Completed Contracts: 8/8 (100% success rate)        │
+│ Average Price Received: ₹34.50/kg (↑ Market avg)    │
+│                                                      │
+│ ┌──────────────────────────────────────────────┐   │
+│ │ Monthly Income Chart                         │   │
+│ │ [Bar chart: Jan 8K, Feb 12K, Mar 15K, ...]   │   │
+│ └──────────────────────────────────────────────┘   │
+│ ┌──────────────────────────────────────────────┐   │
+│ │ Crop-wise Income Breakdown                   │   │
+│ │ Paddy: ₹120,000 (66%) ████████               │   │
+│ │ Arhar: ₹50,000 (28%) ███                     │   │
+│ │ Sorghum: ₹10,000 (6%) █                      │   │
+│ └──────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+Buyer Dashboard (Marketplace Tab)
+```
+┌─────────────────────────────────────────────────────┐
+│ Marketplace [BROWSE] [SAVED SEARCHES] [MY CONTRACTS]│
+├─────────────────────────────────────────────────────┤
+│ Browse Listings: Filter by Crop, District, Price    │
+│                                                      │
+│ Paddy Listings (12 active):                          │
+│ ┌──────────────────────────────────────────────┐   │
+│ │ Paddy, 10 tons, ₹35/kg — Farmer: Ravi       │   │
+│ │ District: Adilabad | Fresh listing (2h)      │   │
+│ │ Quality: Grade A | Market Demand: High       │   │
+│ │ [View Details] [Interested] [View Seller]    │   │
+│ └──────────────────────────────────────────────┘   │
+│ ┌──────────────────────────────────────────────┐   │
+│ │ Paddy, 8 tons, ₹34/kg — Farmer: Mohan       │   │
+│ │ District: Medak | Listed 5d ago              │   │
+│ │ Quality: Grade B | Market Demand: High       │   │
+│ │ [View Details] [Interested] [View Seller]    │   │
+│ └──────────────────────────────────────────────┘   │
+│                                                      │
+│ [Load More] [Clear Filters]                         │
+└─────────────────────────────────────────────────────┘
+```
+
+Admin Dashboard
+```
+┌─────────────────────────────────────────────────────┐
+│ Admin [CONTRACTS] [USERS] [ANALYTICS] [DISPUTES]   │
+├─────────────────────────────────────────────────────┤
+│ Platform Overview:                                   │
+│ Total Users: 1,250 (890 Farmers, 360 Buyers)       │
+│ Active Listings: 245                                │
+│ Active Contracts: 87                                │
+│ Total Revenue (Fees): ₹1,23,450                     │
+│                                                      │
+│ Pending Verifications: 5                            │
+│ ┌──────────────────────────────────────────────┐   │
+│ │ Contract ID: CT-2024-0042                    │   │
+│ │ Farmer: Ravi | Buyer: Ramesh Trading        │   │
+│ │ Crop: Paddy, 10 tons, ₹35/kg                 │   │
+│ │ Status: Harvest Submitted - Awaiting Verify  │   │
+│ │ [View] [Approve] [Request More Info] [Reject]│   │
+│ └──────────────────────────────────────────────┘   │
+│                                                      │
+│ Active Disputes: 2                                   │
+│ ┌──────────────────────────────────────────────┐   │
+│ │ Dispute ID: DP-2024-0001                     │   │
+│ │ Issue: Quality mismatch (moisture >15%)      │   │
+│ │ Raised by: Buyer Ramesh Trading             │   │
+│ │ [View Evidence] [Resolve] [Escalate]        │   │
+│ └──────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+IMPLEMENTATION ROADMAP
+======================
+
+Week 1-2: Setup & Foundation
+- [ ] Create unified backend structure
+- [ ] Set up MongoDB unified schema
+- [ ] Integrate Python ML service via API
+- [ ] Create base React project structure with routing
+
+Week 3-4: Frontend Development
+- [ ] Build Navbar, Sidebar, Dashboard components
+- [ ] Implement Auth pages (Login, Signup, 2FA)
+- [ ] Build Planning tab pages (SoilAnalysis, CropRecommendation, YieldForecast)
+- [ ] Build Marketplace tab pages (BrowseListings, CreateListing, MyListings)
+- [ ] Add responsive CSS (mobile-first)
+
+Week 5-6: Backend APIs & Integration
+- [ ] Implement all REST endpoints (auth, listings, contracts, predictions)
+- [ ] Connect frontend to backend APIs
+- [ ] Integrate Python ML service for predictions
+- [ ] Implement real-time notifications (WebSocket)
+- [ ] Set up Twilio SMS for critical alerts
+
+Week 7-8: Advanced Features
+- [ ] Analytics dashboard with charts (recharts, Chart.js)
+- [ ] Contract lifecycle management with multi-stage workflow
+- [ ] Farm profile management with history tracking
+- [ ] Price tracking and market opportunity detection
+- [ ] Dispute resolution workflow
+
+Week 9-10: Testing & Optimization
+- [ ] Unit tests for APIs (Jest, Supertest)
+- [ ] Integration tests (frontend + backend)
+- [ ] Performance optimization (caching, lazy loading)
+- [ ] Security audit (OWASP top 10)
+
+Week 11-12: Deployment & Documentation
+- [ ] Deploy to production (Render, AWS, or similar)
+- [ ] Set up CI/CD pipeline (GitHub Actions)
+- [ ] Write API documentation (Swagger/OpenAPI)
+- [ ] Create user guides and tutorial videos
+- [ ] Onboard first 100 farmers for beta testing
+
+---
+
+KEY TECHNOLOGY DECISIONS
+========================
+
+1. Frontend Framework: React (keep existing expertise)
+2. Backend Runtime: Node.js (Express) + Python (Flask for ML)
+3. Database: MongoDB (unified collection schema)
+4. Real-time: WebSocket (Socket.io) for chat and notifications
+5. Task Queue: Bull (Redis-backed) for async ML predictions
+6. Authentication: JWT + optional OAuth2 for social login
+7. Blockchain: Neo X Mainnet for smart contracts (keep existing)
+8. File Storage: AWS S3 or similar for farm photos/harvest proofs
+9. Charts/Analytics: Recharts or Chart.js
+10. Mobile: React Native (Phase 3)
+11. DevOps: Docker for containerization, GitHub Actions for CI/CD
+
+---
+
+BUDGET & RESOURCE ESTIMATION
+=============================
+
+Development Team:
+- 1 Full-stack lead (Node.js + React)
+- 2 Frontend developers (React)
+- 1 Backend developer (Express APIs)
+- 1 Python/ML engineer (ML service)
+- 1 DevOps/SRE (deployment, monitoring)
+- 1 QA engineer (testing, automation)
+- 1 Product manager
+
+Duration: 12 weeks (3 months)
+Total cost: ~$150,000 - $200,000 USD (depending on team location)
+
+---
+
+SUCCESS METRICS
+===============
+
+Phase 1 Completion:
+- Unified web interface deployed
+- 100% API coverage (all endpoints working)
+- <2 second response time (p95)
+- 99% uptime
+
+Phase 2 Completion:
+- 500+ farmers on platform
+- 200+ listings active
+- 50+ completed contracts
+- Average farmer income increase: +12%
+
+Post-Deployment:
+- Monthly active users: 1000+
+- Contract completion rate: >95%
+- Average farmer net income gain: ₹50,000/year
+- Net Promoter Score (NPS): >50
+- Repeat usage rate: >80%
+
+---
+
+NEXT STEPS
+==========
+1. Approve this plan
+2. Allocate dev team
+3. Set up development environment
+4. Begin Week 1 tasks
+5. Weekly syncs to track progress
+
+---
+
+End of Enhancement Plan & Roadmap
